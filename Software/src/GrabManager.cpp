@@ -101,13 +101,8 @@ GrabManager::GrabManager(QWidget *parent) : QObject(parent)
 	initColorLists(MaximumNumberOfLeds::Default);
 	initLedWidgets(MaximumNumberOfLeds::Default);
 
-	int idx = 0;
-	for (const QScreen* screen : QGuiApplication::screens()) {
-		connect(screen, &QScreen::geometryChanged,
-			[=](const QRect& geometry) { this->scaleLedWidgets(idx, geometry); }
-		);
-		++idx;
-	}
+	for (QScreen* screen : QGuiApplication::screens())
+		connectScreen(screen);
 
 	connect(qGuiApp, &QGuiApplication::screenAdded, this, &GrabManager::onScreenCountChanged);
 	connect(qGuiApp, &QGuiApplication::screenRemoved, this, &GrabManager::onScreenCountChanged);
@@ -540,7 +535,7 @@ void GrabManager::updateScreenGeometry()
 	m_lastScreenGeometry.clear();
 	QList<QScreen*> screenList = QGuiApplication::screens();
 	foreach(QScreen* screen, screenList) {
-		m_lastScreenGeometry.append(screen->geometry());
+		m_lastScreenGeometry.insert(screen, screen->geometry());
 	}
 
 	emit changeScreen();
@@ -552,19 +547,35 @@ void GrabManager::updateScreenGeometry()
 
 }
 
+void GrabManager::connectScreen(QScreen* screen)
+{
+	// Track screens by pointer, not by index: indexes shift when a monitor is
+	// turned off / unplugged and the order can change when it comes back
+	connect(screen, &QScreen::geometryChanged, this,
+		[this, screen](const QRect& geometry) { scaleLedWidgets(screen, geometry); }
+	);
+}
+
 void GrabManager::onScreenCountChanged(QScreen* screen)
 {
-	Q_UNUSED(screen)
+	// screenAdded: the new screen isn't tracked yet. screenRemoved: the screen is
+	// no longer listed and its connections go away with it.
+	if (QGuiApplication::screens().contains(screen) && !m_lastScreenGeometry.contains(screen))
+		connectScreen(screen);
 	updateScreenGeometry();
 }
 
-void GrabManager::scaleLedWidgets(const int screenIndexResized, const QRect& screenGeometry)
+void GrabManager::scaleLedWidgets(QScreen* screenResized, const QRect& screenGeometry)
 {
-	DEBUG_LOW_LEVEL << Q_FUNC_INFO << "screenIndexResized:" << screenIndexResized;
+	DEBUG_LOW_LEVEL << Q_FUNC_INFO << "screenResized:" << screenResized->name();
 
-	QRect lastScreenGeometry = m_lastScreenGeometry[screenIndexResized];
+	if (!m_lastScreenGeometry.contains(screenResized)) {
+		m_lastScreenGeometry.insert(screenResized, screenGeometry);
+		return;
+	}
+	QRect lastScreenGeometry = m_lastScreenGeometry.value(screenResized);
 
-	DEBUG_LOW_LEVEL << Q_FUNC_INFO << "screen " << screenIndexResized << " is resized to " << screenGeometry;
+	DEBUG_LOW_LEVEL << Q_FUNC_INFO << "screen " << screenResized->name() << " is resized to " << screenGeometry;
 	DEBUG_LOW_LEVEL << Q_FUNC_INFO << "was " << lastScreenGeometry;
 
 	int deltaX = lastScreenGeometry.x() - screenGeometry.x();
@@ -587,7 +598,13 @@ void GrabManager::scaleLedWidgets(const int screenIndexResized, const QRect& scr
 
 		for (int i = 0; i < m_ledWidgets.size(); i++){
 
-			if (!lastScreenGeometry.contains(m_ledWidgets[i]->geometry().center()))
+			const QPoint widgetCenter = m_ledWidgets[i]->geometry().center();
+			if (!lastScreenGeometry.contains(widgetCenter))
+				continue;
+			// When a monitor is turned off, another one can temporarily take its
+			// place (e.g. become the primary at 0,0). Once the first one is back,
+			// the area is its own again: don't drag its widgets along.
+			if (isOnOtherScreen(screenResized, widgetCenter))
 				continue;
 
 			int width = PrismatikMath::round(scaleX * m_ledWidgets[i]->width());
@@ -618,7 +635,16 @@ void GrabManager::scaleLedWidgets(const int screenIndexResized, const QRect& scr
 		}
 	}
 
-	m_lastScreenGeometry[screenIndexResized] = screenGeometry;
+	m_lastScreenGeometry.insert(screenResized, screenGeometry);
+}
+
+bool GrabManager::isOnOtherScreen(const QScreen* screen, const QPoint& point) const
+{
+	for (auto it = m_lastScreenGeometry.cbegin(); it != m_lastScreenGeometry.cend(); ++it) {
+		if (it.key() != screen && it.value().contains(point))
+			return true;
+	}
+	return false;
 }
 
 void GrabManager::initGrabbers()

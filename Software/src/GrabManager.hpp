@@ -93,7 +93,9 @@ private slots:
 	void onScreenCountChanged(QScreen* screen);
 
 private:
-	void scaleLedWidgets(const int screenIndexResized, const QRect& geometry);
+	void connectScreen(QScreen* screen);
+	void scaleLedWidgets(QScreen* screenResized, const QRect& geometry);
+	bool isOnOtherScreen(const QScreen* screen, const QPoint& point) const;
 	GrabberBase *queryGrabber(Grab::GrabberType grabber);
 	void initGrabbers();
 	GrabberBase *initGrabber(GrabberBase *grabber);
@@ -108,7 +110,7 @@ private:
 private:
 	QList<GrabberBase*> m_grabbers;
 	GrabberBase *m_grabber;
-	QList<QRect> m_lastScreenGeometry;
+	QHash<QScreen*, QRect> m_lastScreenGeometry;
 
 #ifdef D3D10_GRAB_SUPPORT
 	D3D10Grabber *m_d3d10Grabber;

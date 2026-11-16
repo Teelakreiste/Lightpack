@@ -31,7 +31,6 @@
 #include <comdef.h>
 #include <dxgi1_2.h>
 #include <d3d11.h>
-_COM_SMARTPTR_TYPEDEF(IDXGIFactory1, __uuidof(IDXGIFactory1));
 _COM_SMARTPTR_TYPEDEF(IDXGIOutput, __uuidof(IDXGIOutput));
 _COM_SMARTPTR_TYPEDEF(IDXGIOutput1, __uuidof(IDXGIOutput1));
 _COM_SMARTPTR_TYPEDEF(IDXGIOutputDuplication, __uuidof(IDXGIOutputDuplication));
@@ -60,6 +59,7 @@ typedef HRESULT(WINAPI *D3D11CreateDeviceFunc)(
 #define ACCESSDENIED_DESKTOP_RETRY_INTERVAL 1000
 #define ACCESSDENIED_DUPLICATION_RETRY_INTERVAL 5000
 #define THREAD_DESTRUCTION_WAIT_TIMEOUT 3000
+#define EMPTY_SCREENS_ADAPTERS_RECREATION_INTERVAL 2000
 
 namespace {
 	// 0 = /1 (no scaling)
@@ -106,6 +106,7 @@ DWORD WINAPI DDuplGrabberThreadProc(LPVOID arg) {
 
 DDuplGrabber::DDuplGrabber(QObject * parent, GrabberContext *context)
 	: GrabberBase(parent, context),
+	m_emptyScreensLastAdaptersRecreation(0),
 	m_state(Uninitialized),
 	m_accessDeniedLastCheck(0),
 	m_dxgiDll(NULL),
@@ -183,6 +184,7 @@ bool DDuplGrabber::init()
 
 bool DDuplGrabber::recreateAdapters() {
 	m_adapters.clear();
+	m_factory = nullptr;
 
 	IDXGIFactory1Ptr factory;
 	HRESULT hr = ((CreateDXGIFactory1Func)m_createDXGIFactory1Func)(__uuidof(IDXGIFactory1), (void**)&factory);
@@ -201,7 +203,16 @@ bool DDuplGrabber::recreateAdapters() {
 		m_adapters.push_back(adapter);
 	}
 
+	m_factory = factory;
 	return true;
+}
+
+// Adapters and their outputs are a snapshot of the configuration at the time the
+// factory was created: a monitor that was turned off / unplugged when that happened
+// will never be enumerated again, even after it comes back.
+bool DDuplGrabber::areAdaptersOutdated()
+{
+	return m_factory == nullptr || !m_factory->IsCurrent();
 }
 
 bool DDuplGrabber::runThreadCommand(DWORD timeout) {
@@ -246,6 +257,12 @@ QList< ScreenInfo > * DDuplGrabber::__screensWithWidgets(QList< ScreenInfo > * r
 			return result;
 	}
 
+	if (!noRecursion && areAdaptersOutdated())
+	{
+		DEBUG_LOW_LEVEL << Q_FUNC_INFO << "Display configuration changed. Recreating adapters";
+		recreateAdapters();
+	}
+
 	for (IDXGIAdapter1Ptr adapter : m_adapters)
 	{
 		IDXGIOutputPtr output;
@@ -277,6 +294,18 @@ QList< ScreenInfo > * DDuplGrabber::__screensWithWidgets(QList< ScreenInfo > * r
 				result->append(screenInfo);
 			}
 		}
+	}
+
+	// IsCurrent() should catch configuration changes, but in case it doesn't
+	// (driver quirk...) periodically retry with fresh adapters rather than
+	// staying stuck with outputs that don't match any widget anymore
+	if (result->isEmpty() && !noRecursion
+		&& GetTickCount() - m_emptyScreensLastAdaptersRecreation > EMPTY_SCREENS_ADAPTERS_RECREATION_INTERVAL)
+	{
+		m_emptyScreensLastAdaptersRecreation = GetTickCount();
+		qWarning() << Q_FUNC_INFO << "No output matches the grab widgets. Recreating adapters";
+		if (recreateAdapters())
+			return __screensWithWidgets(result, grabWidgets, true);
 	}
 	return result;
 }

@@ -37,8 +37,10 @@
 
 #include <windows.h>
 
-// Forward declaration of IDXGIAdapter1 to avoid including dxgi here
+// Forward declaration of IDXGIFactory1 / IDXGIAdapter1 to avoid including dxgi here
 #include <comdef.h>
+MIDL_INTERFACE("770aae78-f26f-4dba-a829-253c83d1b387") IDXGIFactory1;
+_COM_SMARTPTR_TYPEDEF(IDXGIFactory1, __uuidof(IDXGIFactory1));
 MIDL_INTERFACE("29038f61-3839-4626-91fd-086879011a05") IDXGIAdapter1;
 _COM_SMARTPTR_TYPEDEF(IDXGIAdapter1, __uuidof(IDXGIAdapter1));
 namespace SystemSession {
@@ -91,7 +93,11 @@ protected:
 	bool runThreadCommand(DWORD timeout);
 
 private:
+	bool areAdaptersOutdated();
+
+	IDXGIFactory1Ptr m_factory;
 	QList<IDXGIAdapter1Ptr> m_adapters;
+	DWORD m_emptyScreensLastAdaptersRecreation;
 	DDuplGrabberState m_state;
 	DWORD m_accessDeniedLastCheck;
 
