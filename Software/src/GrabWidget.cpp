@@ -118,10 +118,17 @@ QRect GrabWidget::deviceFrameGeometry() const
 #if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
 	// Qt6 uses device independent coordinates but our captured image is in device coordinates.
 	// Move an scale the rect from its device-independent position to its pyhsical.
-	QPoint widgetTopLeft = frameGeometry().topLeft();
-	QPoint screenTopLeft = screen()->geometry().topLeft();
+	// Use the screen the widget actually lies on: screen() isn't updated for hidden
+	// widgets moved programmatically, so after a monitor is turned off and back on
+	// it can still point to the monitor that temporarily took its place
+	const QRect frame = frameGeometry();
+	const QScreen* widgetScreen = QGuiApplication::screenAt(frame.center());
+	if (widgetScreen == nullptr)
+		widgetScreen = screen();
+	QPoint widgetTopLeft = frame.topLeft();
+	QPoint screenTopLeft = widgetScreen->geometry().topLeft();
 	QPoint offset = widgetTopLeft - screenTopLeft;
-	QRect adjustedRect(offset * screen()->devicePixelRatio(), frameGeometry().size() * screen()->devicePixelRatio());
+	QRect adjustedRect(offset * widgetScreen->devicePixelRatio(), frame.size() * widgetScreen->devicePixelRatio());
 	DEBUG_HIGH_LEVEL << Q_FUNC_INFO << "adjusted: " << Debug::toString(adjustedRect);
 	return adjustedRect;
 #else
