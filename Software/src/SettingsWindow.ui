@@ -2833,6 +2833,36 @@ Internally emulates the effects of f.lux, redshift, Night Light, Night Shift...<
              </item>
             </layout>
            </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_ReferenceMonitor">
+             <item>
+              <widget class="QLabel" name="label_ReferenceMonitor">
+               <property name="toolTip">
+                <string>Turn the lights off when this monitor is turned off or loses signal, and back on when it returns. Saved per profile.</string>
+               </property>
+               <property name="text">
+                <string>Reference monitor:</string>
+               </property>
+               <property name="buddy">
+                <cstring>comboBox_ReferenceMonitor</cstring>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="comboBox_ReferenceMonitor">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                 <horstretch>1</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="toolTip">
+                <string>Turn the lights off when this monitor is turned off or loses signal, and back on when it returns. Saved per profile.</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
           </layout>
          </widget>
         </item>

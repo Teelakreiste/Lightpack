@@ -84,8 +84,13 @@ private slots:
 	void onFocusChanged(QWidget *, QWidget *);
 	void quitFromWizard(int result);
 	void onSessionChange(SystemSession::Status change);
+	void scheduleReferenceMonitorCheck();
+	void checkReferenceMonitor();
 
 private:
+	void initReferenceMonitorWatch();
+	void watchScreen(QScreen* screen);
+
 	void processCommandLineArguments();
 	void outputMessage(const QString& message) const;
 	void printVersionsSoftwareQtOS() const;
@@ -139,4 +144,8 @@ private:
 	bool m_isLightsWereOnBeforeLock = false;
 	bool m_isLightsWereOnBeforeDisplaySleep = false;
 	bool m_isLightsWereOnBeforeSuspend = false;
+
+	QTimer* m_referenceMonitorCheckTimer{nullptr};
+	bool m_isReferenceMonitorMissing = false;
+	bool m_isLightsWereOnBeforeReferenceMonitorLost = false;
 };

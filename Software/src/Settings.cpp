@@ -195,6 +195,8 @@ static const QString LuminosityThreshold = QStringLiteral("Grab/LuminosityThresh
 static const QString OverBrighten = QStringLiteral("Grab/OverBrighten");
 static const QString IsMinimumLuminosityEnabled = QStringLiteral("Grab/IsMinimumLuminosityEnabled");
 static const QString IsDx1011GrabberEnabled = QStringLiteral("Grab/IsDX1011GrabberEnabled");
+static const QString ReferenceMonitor = QStringLiteral("Grab/ReferenceMonitor");
+static const QString ReferenceMonitorName = QStringLiteral("Grab/ReferenceMonitorName");
 static const QString IsDx9GrabbingEnabled = QStringLiteral("Grab/IsDX9GrabbingEnabled");
 static const QString IsApplyBlueLightReductionEnabled = QStringLiteral("Grab/IsApplyGammaRampEnabled");
 static const QString IsApplyColorTemperatureEnabled = QStringLiteral("Grab/IsApplyColorTemperatureEnabled");
@@ -1624,6 +1626,24 @@ void Settings::setGrabberType(Grab::GrabberType grabberType)
 	emit m_this->grabberTypeChanged(grabberType);
 }
 
+QString Settings::getReferenceMonitor()
+{
+	return value(Profile::Key::Grab::ReferenceMonitor).toString();
+}
+
+QString Settings::getReferenceMonitorName()
+{
+	return value(Profile::Key::Grab::ReferenceMonitorName).toString();
+}
+
+void Settings::setReferenceMonitor(const QString& monitorId, const QString& monitorName)
+{
+	DEBUG_LOW_LEVEL << Q_FUNC_INFO << monitorId << monitorName;
+	setValue(Profile::Key::Grab::ReferenceMonitor, monitorId);
+	setValue(Profile::Key::Grab::ReferenceMonitorName, monitorName);
+	emit m_this->referenceMonitorChanged(monitorId);
+}
+
 #ifdef D3D10_GRAB_SUPPORT
 bool Settings::isDx1011GrabberEnabled() {
 	return value(Profile::Key::Grab::IsDx1011GrabberEnabled).toBool();
@@ -2108,6 +2128,8 @@ void Settings::initCurrentProfile(bool isResetDefault)
 	setNewOption(Profile::Key::Grab::LuminosityThreshold,			Profile::Grab::LuminosityThresholdDefault, isResetDefault);
 	setNewOption(Profile::Key::Grab::IsMinimumLuminosityEnabled,	Profile::Grab::IsMinimumLuminosityEnabledDefault, isResetDefault);
 	setNewOption(Profile::Key::Grab::IsDx1011GrabberEnabled,		Profile::Grab::IsDx1011GrabberEnabledDefault, isResetDefault);
+	setNewOption(Profile::Key::Grab::ReferenceMonitor,				QString(), isResetDefault);
+	setNewOption(Profile::Key::Grab::ReferenceMonitorName,			QString(), isResetDefault);
 	setNewOption(Profile::Key::Grab::IsDx9GrabbingEnabled,			Profile::Grab::IsDx9GrabbingEnabledDefault, isResetDefault);
 	setNewOption(Profile::Key::Grab::IsApplyBlueLightReductionEnabled,		Profile::Grab::IsApplyBlueLightReductionEnabledDefault, isResetDefault);
 	setNewOption(Profile::Key::Grab::IsApplyColorTemperatureEnabled,Profile::Grab::IsApplyColorTemperatureEnabledDefault, isResetDefault);

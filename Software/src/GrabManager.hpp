@@ -59,6 +59,11 @@ public:
 	void setNumberOfLeds(int numberOfLeds);
 	void reset();
 
+	// Stable identifier of a monitor (EDID manufacturer/model/serial when available)
+	// used to remember the reference monitor across restarts and reconnections
+	static QString screenId(const QScreen* screen);
+	static QScreen* findScreen(const QString& screenId);
+
 public slots:
 	void onGrabberTypeChanged(const Grab::GrabberType grabberType);
 	void onGrabSlowdownChanged(int ms);
@@ -77,6 +82,7 @@ public slots:
 	void ledDeviceCallSuccess(bool isSuccess);
 	void ledDeviceOpenSuccess(bool isSuccess);
 	void settingsProfileChanged(const QString &profileName);
+	void restoreLedWidgetsPositions();
 	void setVisibleLedWidgets(bool state);
 	void setColoredLedWidgets(bool state);
 	void setWhiteLedWidgets(bool state);

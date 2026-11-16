@@ -205,6 +205,11 @@ public:
 	static Grab::GrabberType getGrabberType();
 	static void setGrabberType(Grab::GrabberType grabMode);
 
+	// Monitor whose presence controls the LEDs (empty: none, LEDs follow the usual rules)
+	static QString getReferenceMonitor();
+	static QString getReferenceMonitorName();
+	static void setReferenceMonitor(const QString& monitorId, const QString& monitorName);
+
 #ifdef D3D10_GRAB_SUPPORT
 	static bool isDx1011GrabberEnabled();
 	static void setDx1011GrabberEnabled(bool isEnabled);
@@ -368,6 +373,7 @@ signals:
 	void deviceDitheringEnabledChanged(bool isEnabled);
 	void deviceColorSequenceChanged(QString value);
 	void grabberTypeChanged(const Grab::GrabberType grabMode);
+	void referenceMonitorChanged(const QString& monitorId);
 #ifdef D3D10_GRAB_SUPPORT
 	void dx1011GrabberEnabledChanged(bool isEnabled);
 	void dx9GrabberEnabledChanged(bool isEnabled);

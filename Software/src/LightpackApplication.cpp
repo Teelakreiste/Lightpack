@@ -238,6 +238,8 @@ void LightpackApplication::initializeAll()
 	for (EventFilters::const_iterator it = m_EventFilters.cbegin(); it != m_EventFilters.cend(); ++it)
 		this->installNativeEventFilter(it->data());
 
+	initReferenceMonitorWatch();
+
 	emit postInitialization();
 }
 
@@ -472,6 +474,77 @@ void LightpackApplication::onSessionChange(SystemSession::Status change)
 			m_isDisplayOff = false;
 			break;
 	}
+}
+
+void LightpackApplication::initReferenceMonitorWatch()
+{
+	m_referenceMonitorCheckTimer = new QTimer(this);
+	m_referenceMonitorCheckTimer->setSingleShot(true);
+	// Turning a monitor off/on triggers a burst of screen added/removed/moved
+	// events spread over a few seconds: act once things have settled
+	using namespace std::chrono_literals;
+	m_referenceMonitorCheckTimer->setInterval(1500ms);
+	connect(m_referenceMonitorCheckTimer, &QTimer::timeout, this, &LightpackApplication::checkReferenceMonitor);
+
+	for (QScreen* screen : QGuiApplication::screens())
+		watchScreen(screen);
+	connect(qGuiApp, &QGuiApplication::screenAdded, this, [this](QScreen* screen) {
+		watchScreen(screen);
+		scheduleReferenceMonitorCheck();
+	});
+	connect(qGuiApp, &QGuiApplication::screenRemoved, this, &LightpackApplication::scheduleReferenceMonitorCheck);
+	connect(settings(), &Settings::referenceMonitorChanged, this, &LightpackApplication::scheduleReferenceMonitorCheck);
+	connect(settings(), &Settings::currentProfileInited, this, &LightpackApplication::scheduleReferenceMonitorCheck);
+
+	// the monitor may already be off at startup
+	scheduleReferenceMonitorCheck();
+}
+
+void LightpackApplication::watchScreen(QScreen* screen)
+{
+	connect(screen, &QScreen::geometryChanged, this, &LightpackApplication::scheduleReferenceMonitorCheck);
+}
+
+void LightpackApplication::scheduleReferenceMonitorCheck()
+{
+	if (m_referenceMonitorCheckTimer)
+		m_referenceMonitorCheckTimer->start();
+}
+
+void LightpackApplication::checkReferenceMonitor()
+{
+	const QString referenceMonitor = Settings::getReferenceMonitor();
+	const bool isMissing = !referenceMonitor.isEmpty() && GrabManager::findScreen(referenceMonitor) == nullptr;
+
+	if (isMissing == m_isReferenceMonitorMissing)
+		return;
+
+	DEBUG_LOW_LEVEL << Q_FUNC_INFO << "reference monitor" << referenceMonitor << (isMissing ? "lost" : "back")
+		<< "backlightStatus:" << m_backlightStatus << "isLightsTurnedOffBySessionChange:" << m_isLightsTurnedOffBySessionChange;
+
+	if (isMissing)
+	{
+		// StatusDeviceError counts as on: the device may lose power along with the monitor
+		m_isLightsWereOnBeforeReferenceMonitorLost = m_backlightStatus != Backlight::StatusOff && !m_isLightsTurnedOffBySessionChange;
+		QMetaObject::invokeMethod(m_ledDeviceManager, "switchOffLeds", Qt::QueuedConnection);
+		m_isLightsTurnedOffBySessionChange = true;
+	}
+	else
+	{
+		QMetaObject::invokeMethod(m_grabManager, &GrabManager::restoreLedWidgetsPositions, Qt::QueuedConnection);
+		// The LEDs are often powered by the monitor (USB hub) while the controller
+		// stays powered by the PC: the controller can get stuck when the strip loses
+		// power and keeps ignoring data. Reopening the port resets it (DTR on most
+		// Arduino-like boards) so it starts fresh.
+		QMetaObject::invokeMethod(m_ledDeviceManager, &LedDeviceManager::recreateLedDevice, Qt::QueuedConnection);
+		if (m_isLightsWereOnBeforeReferenceMonitorLost)
+		{
+			QMetaObject::invokeMethod(m_ledDeviceManager, "switchOnLeds", Qt::QueuedConnection);
+			m_isLightsTurnedOffBySessionChange = false;
+		}
+		m_isLightsWereOnBeforeReferenceMonitorLost = false;
+	}
+	m_isReferenceMonitorMissing = isMissing;
 }
 
 void LightpackApplication::processCommandLineArguments()

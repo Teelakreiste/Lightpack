@@ -347,6 +347,40 @@ void GrabManager::reset()
 	clearColorsCurrent();
 }
 
+QString GrabManager::screenId(const QScreen* screen)
+{
+	if (screen == nullptr)
+		return QString();
+
+	// name() can change with the connection order (\\.\DISPLAYn on older Qt),
+	// prefer the EDID data when the system provides it
+	const QString edidId = QStringList({ screen->manufacturer(), screen->model(), screen->serialNumber() }).join(QLatin1Char('|'));
+	if (!screen->model().isEmpty() || !screen->serialNumber().isEmpty())
+		return edidId;
+	return screen->name();
+}
+
+QScreen* GrabManager::findScreen(const QString& id)
+{
+	if (id.isEmpty())
+		return nullptr;
+	for (QScreen* screen : QGuiApplication::screens()) {
+		if (screenId(screen) == id)
+			return screen;
+	}
+	return nullptr;
+}
+
+void GrabManager::restoreLedWidgetsPositions()
+{
+	DEBUG_LOW_LEVEL << Q_FUNC_INFO;
+
+	// Bring the widgets back to the positions saved in the profile, whatever the
+	// system or scaleLedWidgets() did with them while monitors were missing
+	for (int i = 0; i < m_ledWidgets.size(); i++)
+		m_ledWidgets[i]->settingsProfileChanged();
+}
+
 void GrabManager::settingsProfileChanged(const QString &profileName)
 {
 	DEBUG_LOW_LEVEL << Q_FUNC_INFO;

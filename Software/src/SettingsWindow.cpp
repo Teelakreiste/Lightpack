@@ -330,6 +330,9 @@ void SettingsWindow::connectSignalsSlots()
 	connect(ui->checkBox_EnableDx1011Capture, &QCheckBox::toggled, this, &SettingsWindow::onDx1011CaptureEnabledChanged);
 	connect(ui->checkBox_EnableDx9Capture, &QCheckBox::toggled, this, &SettingsWindow::onDx9CaptureEnabledChanged);
 #endif
+	connect(ui->comboBox_ReferenceMonitor, &QComboBox::currentIndexChanged, this, &SettingsWindow::onReferenceMonitorChanged);
+	connect(qGuiApp, &QGuiApplication::screenAdded, this, &SettingsWindow::updateReferenceMonitorList);
+	connect(qGuiApp, &QGuiApplication::screenRemoved, this, &SettingsWindow::updateReferenceMonitorList);
 
 
 	// Dev tab configure API (port, apikey)
@@ -1239,6 +1242,53 @@ void SettingsWindow::onGrabberChanged()
 	}
 }
 
+void SettingsWindow::updateReferenceMonitorList()
+{
+	// item data: monitor id, empty for "None"
+	const QString selectedId = Settings::getReferenceMonitor();
+	const QScreen* primary = QGuiApplication::primaryScreen();
+
+	const QSignalBlocker blocker(ui->comboBox_ReferenceMonitor);
+	ui->comboBox_ReferenceMonitor->clear();
+	ui->comboBox_ReferenceMonitor->addItem(tr("None (lights ignore monitors turning off)"), QString());
+
+	int selectedIndex = 0;
+	for (const QScreen* screen : QGuiApplication::screens()) {
+		const QString id = GrabManager::screenId(screen);
+		QString label = QStringLiteral("%1 (%2x%3)").arg(screen->name()).arg(screen->size().width()).arg(screen->size().height());
+		if (screen == primary)
+			label += tr(", primary");
+		ui->comboBox_ReferenceMonitor->addItem(label, id);
+		if (id == selectedId)
+			selectedIndex = ui->comboBox_ReferenceMonitor->count() - 1;
+	}
+
+	// keep showing the configured monitor while it's off
+	if (!selectedId.isEmpty() && selectedIndex == 0) {
+		QString name = Settings::getReferenceMonitorName();
+		if (name.isEmpty())
+			name = selectedId;
+		ui->comboBox_ReferenceMonitor->addItem(tr("%1 (not connected)").arg(name), selectedId);
+		selectedIndex = ui->comboBox_ReferenceMonitor->count() - 1;
+	}
+
+	ui->comboBox_ReferenceMonitor->setCurrentIndex(selectedIndex);
+}
+
+void SettingsWindow::onReferenceMonitorChanged(int index)
+{
+	if (updatingFromSettings || index < 0)
+		return;
+
+	const QString id = ui->comboBox_ReferenceMonitor->itemData(index).toString();
+	if (id == Settings::getReferenceMonitor())
+		return;
+
+	const QScreen* screen = GrabManager::findScreen(id);
+	DEBUG_LOW_LEVEL << Q_FUNC_INFO << id;
+	Settings::setReferenceMonitor(id, screen ? screen->name() : Settings::getReferenceMonitorName());
+}
+
 void SettingsWindow::onDx1011CaptureEnabledChanged(bool isEnabled) {
 	if (!updatingFromSettings) {
 		DEBUG_LOW_LEVEL << Q_FUNC_INFO << isEnabled;
@@ -2009,6 +2059,7 @@ void SettingsWindow::updateUiFromSettings()
 	ui->checkBox_EnableDx1011Capture->setChecked(Settings::isDx1011GrabberEnabled());
 	ui->checkBox_EnableDx9Capture->setChecked(Settings::isDx9GrabbingEnabled());
 #endif
+	updateReferenceMonitorList();
 
 	onMoodLampLiquidMode_Toggled(ui->radioButton_LiquidColorMoodLampMode->isChecked());
 	updateDeviceTabWidgetsVisibility();

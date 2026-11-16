@@ -163,6 +163,8 @@ private slots:
 	void prevProfile();
 
 	void onGrabberChanged();
+	void onReferenceMonitorChanged(int index);
+	void updateReferenceMonitorList();
 	void onGrabSlowdown_valueChanged(int value);
 	void onGrabIsAvgColors_toggled(bool state);
 	void onGrabOverBrighten_valueChanged(int value);
