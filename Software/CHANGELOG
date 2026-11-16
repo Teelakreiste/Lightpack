@@ -13,6 +13,16 @@ _/_/_/_/  _/    _/_/_/  _/    _/      _/_/  _/_/_/      _/_/_/    _/_/_/  _/    
 #    Software changelog
 ===================================================================================
 
+Version 5.11.3.0
+---------------
+November 16, 2026
+
+* Add a per-profile "Reference monitor": the lights switch off when that monitor
+  is turned off or loses signal, and back on when it returns
+* Fix grabbing (DDupl) staying stuck or black after a monitor is turned off and on
+* Fix grab areas being moved to another monitor when a monitor comes back
+* Recover from stalled serial writes in Adalight/Ardulight (LEDs freezing)
+
 Version 5.11.2.31
 ---------------
 January 8, 2022
